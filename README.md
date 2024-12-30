@@ -1,4 +1,4 @@
-# FastAuth
+# Static Auth
 
 A minimal static file server with Google OAuth authentication.
 
@@ -11,7 +11,7 @@ A minimal static file server with Google OAuth authentication.
 ## Usage
 
 ```bash
-uvx https://raw.githubusercontent.com/sanand0/fastauth/main/app.py
+uvx https://raw.githubusercontent.com/sanand0/staticauth/main/app.py
 ```
 
 ## Setup
