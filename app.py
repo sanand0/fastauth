@@ -45,7 +45,7 @@ auth_info = {
   "emails": []
 }
 
-cookie_scheme = APIKeyCookie(name="session")
+cookie_scheme = APIKeyCookie(name="session", auto_error=False)
 
 def get_authorized_emails() -> List[str]:
     """Load and cache authorized email patterns from .auth file.
@@ -64,20 +64,17 @@ def get_authorized_emails() -> List[str]:
     except FileNotFoundError:
         return ["*"]
 
-async def get_current_user(session: str = Security(cookie_scheme)) -> str:
-    """Validate session cookie and return email.
+async def get_current_user(session: str = Depends(cookie_scheme)) -> str | RedirectResponse:
+    """Validate session cookie and return email or redirect.
 
     Args:
         session: Session cookie value
 
     Returns:
-        str: Authenticated email
-
-    Raises:
-        HTTPException: If session is invalid
+        Union[str, RedirectResponse]: Authenticated email or redirect to login
     """
     if not session or not isinstance(session, str):
-        raise HTTPException(status_code=401, detail="Invalid session")
+        return RedirectResponse("/login")
     return session
 
 def is_authorized(email: str) -> bool:
@@ -141,13 +138,11 @@ async def googleauth(code: str):
         async with httpx.AsyncClient() as client:
             token_response = await client.post(token_url, data=token_data)
             token_response.raise_for_status()
-            print(token_response.json())
             id_info = id_token.verify_oauth2_token(
                 token_response.json()["id_token"],
                 requests.Request(),
                 GOOGLE_CLIENT_ID
             )
-            print(id_info)
 
         response = RedirectResponse("/")
         response.set_cookie(
@@ -172,7 +167,7 @@ async def logout():
 def serve_static(
     request: Request,
     path: str,
-    email: str = Depends(get_current_user)
+    email: str | RedirectResponse = Depends(get_current_user)
 ):
     """Serve static files with authentication and security checks.
 
@@ -187,6 +182,9 @@ def serve_static(
     Raises:
         HTTPException: If file access is denied or not found
     """
+    if isinstance(email, RedirectResponse):
+        return email
+
     if not is_authorized(email):
         return HTMLResponse(unauthorized_html(email), status_code=403)
 
