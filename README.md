@@ -11,15 +11,13 @@ A minimal static file server with Google OAuth authentication.
 ## Usage
 
 ```bash
-uvx https://raw.githubusercontent.com/sanand0/staticauth/main/app.py
+uv run https://raw.githubusercontent.com/sanand0/staticauth/main/app.py
 ```
 
 ## Setup
 
 1. Create OAuth credentials at [Google Cloud Console](https://console.cloud.google.com/apis/credentials)
-
    - Set authorized redirect URI to `http://localhost:8000/googleauth/`
-
 2. Configure environment variables:
 
    ```env
@@ -31,7 +29,7 @@ uvx https://raw.githubusercontent.com/sanand0/staticauth/main/app.py
 
 3. Control access by creating `.auth` file:
    ```text
-   .*@yourdomain.com     # Allow all emails from domain
-   specific@email.com    # Allow specific email
+   *@yourdomain.com     # Allow all emails from domain
+   specific@email.com   # Allow specific email
    *                    # Allow all emails (default if no .auth)
    ```
