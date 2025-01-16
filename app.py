@@ -22,7 +22,9 @@ import os
 import pathlib
 
 logger = logging.getLogger(__name__)
-load_dotenv()
+
+# Load .env from the current working directory, not the script directory
+load_dotenv(".env")
 
 app = FastAPI()
 app.add_middleware(
