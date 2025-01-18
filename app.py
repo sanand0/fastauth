@@ -55,6 +55,7 @@ def get_authorized_emails() -> List[str]:
     if auth:
         if not auth_info["emails"]:
             auth_info["emails"] = [pattern.strip() for pattern in auth.split(",")]
+
         return auth_info["emails"]
 
     try:
@@ -147,8 +148,9 @@ async def googleauth(code: str):
         async with httpx.AsyncClient() as client:
             token_response = await client.post(token_url, data=token_data)
             token_response.raise_for_status()
+            response = await token_response.json()
             id_info = id_token.verify_oauth2_token(
-                token_response.json()["id_token"], httpx.Request(), GOOGLE_CLIENT_ID
+                response["id_token"], httpx.Request, GOOGLE_CLIENT_ID
             )
 
         response = RedirectResponse("/")
@@ -163,7 +165,6 @@ async def logout():
     """Clear session cookie and redirect to login."""
     response = RedirectResponse("/login")
     response.delete_cookie("session")
-    print("DELETING COOKIE")
     return response
 
 

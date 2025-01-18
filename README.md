@@ -40,7 +40,7 @@ The `AUTH` environment variable is a comma-separated list of email patterns. The
 - `user*@example.com` matches all emails from `example.com` that start with `user`
 - `*user@example.com` matches all emails from `example.com` that end with `user`
 - `*@*.edu` matches all emails from all `.edu` domains
-- `*` matches all emails
+- `*` matches all emails (default if no AUTH or .auth file exists)
 
 You can also use a `.auth` file in the folder to restrict access, useful to commit email patterns in the repository.
 
@@ -50,4 +50,17 @@ The `.auth` file is a text file with one pattern per line. The patterns are matc
 *@example.com       # Allow all emails from example.com
 user@example.com    # Allow user@example.com
 *@*.edu             # Allow all emails from all .edu domains
+```
+
+**NOTE:**
+
+- The `.auth` file and environment variables are cached. Restart the server if you change either.
+- For security, the server blocks access to all dotfiles (files/folders starting with `.`)
+- Files are served with cache headers (1 hour private cache) and security headers
+- If the server fails to bind to 0.0.0.0, it will fall back to 127.0.0.1 (localhost only)
+
+## Testing
+
+```bash
+uv run test_app.py
 ```

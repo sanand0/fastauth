@@ -15,8 +15,8 @@ import os
 import pytest
 from fastapi.testclient import TestClient
 from unittest.mock import patch, mock_open
-
 from app import app, get_authorized_emails, is_authorized
+import httpx
 
 client = TestClient(app)
 
@@ -61,7 +61,6 @@ def mock_google_verify():
 def test_login_redirect():
     """Test login endpoint redirects to Google OAuth."""
     response = client.get("/login", follow_redirects=False)
-    print("RESPONSE", response.headers)
     assert response.status_code == 307
     assert "accounts.google.com" in response.headers["location"]
 
@@ -73,7 +72,7 @@ async def test_googleauth_success(mock_env, mock_google_verify):
         mock_post.return_value.json.return_value = {"id_token": "fake-token"}
         mock_post.return_value.raise_for_status = lambda: None
 
-        response = client.get("/googleauth/?code=fake-code")
+        response = client.get("/googleauth/?code=fake-code", follow_redirects=False)
         assert response.status_code == 307
         assert response.headers["location"] == "/"
         assert "session" in response.cookies
@@ -95,6 +94,11 @@ def test_logout():
         ("test@company.com", ["*@company.com"], True),
         ("user@edu.edu", ["*@*.edu"], True),
         ("specific@email.com", ["specific@email.com"], True),
+        ("user123@example.com", ["user*@example.com"], True),
+        ("otheruser@example.com", ["user*@example.com"], False),
+        ("myuser@example.com", ["*user@example.com"], True),
+        ("test@example.com", ["user@other.com", "*@example.com"], True),
+        ("test@example.com", ["user@other.com", "admin@other.com"], False),
     ],
 )
 def test_is_authorized(email, patterns, expected):
@@ -121,10 +125,21 @@ def test_get_authorized_emails_from_file(mock_auth_file):
         assert "*@*.edu" in emails
 
 
+def test_get_authorized_emails_default():
+    """Test default authorization when no AUTH env var or .auth file exists."""
+    with patch.dict(os.environ, clear=True):
+        with patch("os.path.getmtime", side_effect=FileNotFoundError):
+            emails = get_authorized_emails()
+            assert len(emails) == 1
+            assert emails == ["*"]
+
+
 def test_static_file_serving_unauthorized():
     """Test unauthorized access to static files."""
     with patch.dict(os.environ, {"AUTH": "user@example.com"}):
-        response = client.get("/README.md", cookies={"session": "user@unauthorized.com"})
+        test_client = TestClient(app)
+        test_client.cookies.set("session", "user@unauthorized.com")
+        response = test_client.get("/README.md")
         assert response.status_code == 403
         assert "Unauthorized" in response.text
 
@@ -132,7 +147,9 @@ def test_static_file_serving_unauthorized():
 def test_static_file_serving_public():
     """Test public access to static files, which is the default."""
     with patch.dict(os.environ, {"AUTH": ""}):
-        response = client.get("/README.md", cookies={"session": "user@unauthorized.com"})
+        test_client = TestClient(app)
+        test_client.cookies.set("session", "user@unauthorized.com")
+        response = test_client.get("/README.md")
         assert response.status_code == 200
 
 
@@ -147,7 +164,9 @@ def test_static_file_serving_public():
 def test_static_file_security(path):
     """Test security measures for static file serving."""
     with patch("app.is_authorized", return_value=True):
-        response = client.get(path, cookies={"session": "test@example.com"})
+        test_client = TestClient(app)
+        test_client.cookies.set("session", "test@example.com")
+        response = test_client.get(path)
         assert response.status_code == 404
 
 
@@ -161,12 +180,31 @@ def test_static_file_serving_success(tmp_path):
         patch("app.is_authorized", return_value=True),
         patch("pathlib.Path.resolve", return_value=test_file),
     ):
-        response = client.get("/test.txt", cookies={"session": "test@example.com"})
+        test_client = TestClient(app)
+        test_client.cookies.set("session", "test@example.com")
+        response = test_client.get("/test.txt")
         assert response.status_code == 200
         assert response.text == "test content"
         assert "Cache-Control" in response.headers
         assert "X-Content-Type-Options" in response.headers
 
 
+@pytest.mark.asyncio
+async def test_googleauth_invalid_response():
+    """Test handling of invalid Google OAuth response."""
+    with patch("httpx.AsyncClient.post") as mock_post:
+        mock_post.side_effect = httpx.HTTPError("Invalid response")
+
+        response = client.get("/googleauth/?code=invalid-code")
+        assert response.status_code == 400
+        assert "Invalid response" in response.json()["detail"]
+
+
 if __name__ == "__main__":
-    pytest.main()
+    pytest.main(
+        [
+            # Ignore PytestAssertRewriteWarning: Module already imported so cannot be rewritten: anyio
+            "-W",
+            "ignore::pytest.PytestAssertRewriteWarning",
+        ]
+    )
