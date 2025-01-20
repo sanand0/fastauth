@@ -9,6 +9,7 @@
 #     "pytest",
 #     "pytest-asyncio",
 #     "python-dotenv",
+#     "requests",
 # ]
 # ///
 import os
@@ -68,6 +69,7 @@ def test_login_redirect():
 @pytest.mark.asyncio(loop_scope="function")
 async def test_googleauth_success(mock_env, mock_google_verify):
     """Test successful Google OAuth callback."""
+    # TODO: This test fails
     with patch("httpx.AsyncClient.post") as mock_post:
         mock_post.return_value.json.return_value = {"id_token": "fake-token"}
         mock_post.return_value.raise_for_status = lambda: None

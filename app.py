@@ -4,6 +4,7 @@
 #     "python-dotenv",
 #     "fastapi",
 #     "google-auth",
+#     "requests",
 #     "httpx",
 #     "uvicorn",
 # ]
@@ -14,6 +15,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse, RedirectResponse, FileResponse
 from fastapi.security import APIKeyCookie
 from fnmatch import fnmatch
+from google.auth.transport import requests
 from google.oauth2 import id_token
 from typing import List
 import httpx
@@ -148,9 +150,9 @@ async def googleauth(code: str):
         async with httpx.AsyncClient() as client:
             token_response = await client.post(token_url, data=token_data)
             token_response.raise_for_status()
-            response = await token_response.json()
+            response = token_response.json()
             id_info = id_token.verify_oauth2_token(
-                response["id_token"], httpx.Request, GOOGLE_CLIENT_ID
+                response["id_token"], requests.Request(), GOOGLE_CLIENT_ID
             )
 
         response = RedirectResponse("/")
